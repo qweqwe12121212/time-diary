@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- циферблат -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-26,0a26,26 0,1 1,52 0a26,26 0,1 1,-52 0" />
+    <!-- цветной сектор «потраченного времени» -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,54L54,28A26,26 0,0 1,76.5,67Z" />
+    <path
+        android:fillColor="#22C55E"
+        android:pathData="M54,54L76.5,67A26,26 0,0 1,41,78.5Z" />
+    <!-- стрелки -->
+    <path
+        android:fillColor="#1F2937"
+        android:pathData="M52.5,36h3v18.5h-3z" />
+    <path
+        android:fillColor="#1F2937"
+        android:pathData="M54,52.5l12,6.5l-1.5,2.6l-12,-6.5z" />
+</vector>

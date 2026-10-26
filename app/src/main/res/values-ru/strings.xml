@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Дневник времени</string>
+    <string name="channel_timer">Таймер</string>
+    <string name="channel_reminders">Напоминания</string>
+    <string name="running">Идёт</string>
+    <string name="paused">Пауза</string>
+    <string name="pause">Пауза</string>
+    <string name="resume">Продолжить</string>
+    <string name="stop">Завершить</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Time Diary</string>
+    <string name="channel_timer">Timer</string>
+    <string name="channel_reminders">Reminders</string>
+    <string name="running">Running</string>
+    <string name="paused">Paused</string>
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+    <string name="stop">Finish</string>
+</resources>
