@@ -42,7 +42,18 @@ const I = {
     no_notes: 'Заметок пока нет. Нажми ＋.', no_rem: 'На этот день напоминаний нет.',
     err_title: 'Введи текст', err_name: 'Введи название', confirm_del: 'Удалить?',
     h_short: 'ч', m_short: 'мин', picking_hours: 'Часы', picking_minutes: 'Минуты', now: 'Сейчас',
-    manual_src: 'вручную', hint_notif: 'Таймер виден в шторке уведомлений — там можно поставить паузу или завершить.'
+    manual_src: 'вручную', hint_notif: 'Таймер виден в шторке уведомлений — там можно поставить паузу или завершить.',
+    nav_screen: 'Экран', p1: 'День',
+    scr_need_title: 'Нужен доступ к статистике использования',
+    scr_need_text: 'Android сам считает, сколько времени ты провёл в каждом приложении. Чтобы показать это здесь, нужно один раз разрешить доступ. Данные остаются только на телефоне.',
+    scr_steps: '1. Нажми кнопку ниже.\n2. В списке найди «Дневник времени».\n3. Включи «Разрешить доступ к данным об использовании».\n4. Вернись в приложение.',
+    scr_grant: 'Открыть настройки доступа', scr_browser: 'Эта вкладка работает только в приложении на телефоне.',
+    scr_others: 'Остальные', scr_show_all: 'Показать все ({0})', scr_less: 'Свернуть',
+    scr_hide: 'Скрыть это приложение из статистики?', scr_hidden: 'Скрытые приложения', scr_restore: 'Вернуть',
+    scr_no_hidden: 'Скрытых приложений нет. Скрыть можно кнопкой ✕ на вкладке «Экран».',
+    scr_no_data: 'Пока нет данных об экранном времени за этот период.',
+    scr_note: 'Android хранит подробные данные примерно неделю. Всё, что приложение успело увидеть, оно сохраняет у себя, поэтому история копится со временем. Время считается по приложению целиком: рилсы и обычная лента для Android — одно приложение.',
+    scr_days: 'дн.', scr_apps_hint: 'Приложения'
   },
   en: {
     nav_stats: 'Stats', nav_home: 'Home', nav_notes: 'Notes', settings: 'Settings',
@@ -73,7 +84,18 @@ const I = {
     no_notes: 'No notes yet. Tap ＋.', no_rem: 'No reminders for this day.',
     err_title: 'Enter some text', err_name: 'Enter a name', confirm_del: 'Delete?',
     h_short: 'h', m_short: 'm', picking_hours: 'Hours', picking_minutes: 'Minutes', now: 'Now',
-    manual_src: 'manual', hint_notif: 'The timer is shown in the notification shade, where you can pause or finish it.'
+    manual_src: 'manual', hint_notif: 'The timer is shown in the notification shade, where you can pause or finish it.',
+    nav_screen: 'Screen', p1: 'Day',
+    scr_need_title: 'Usage access is needed',
+    scr_need_text: 'Android itself counts how long you spend in each app. To show it here, allow access once. The data never leaves your phone.',
+    scr_steps: '1. Tap the button below.\n2. Find “Time Diary” in the list.\n3. Turn on “Allow usage access”.\n4. Come back to the app.',
+    scr_grant: 'Open access settings', scr_browser: 'This tab only works in the phone app.',
+    scr_others: 'Others', scr_show_all: 'Show all ({0})', scr_less: 'Show less',
+    scr_hide: 'Hide this app from the stats?', scr_hidden: 'Hidden apps', scr_restore: 'Restore',
+    scr_no_hidden: 'No hidden apps. Hide one with the ✕ button on the Screen tab.',
+    scr_no_data: 'No screen time data for this period yet.',
+    scr_note: 'Android keeps detailed data for about a week. Whatever the app has seen it saves itself, so history builds up over time. Time is counted per app: reels and the regular feed are one app to Android.',
+    scr_days: 'd', scr_apps_hint: 'Apps'
   }
 };
 
@@ -95,7 +117,8 @@ function sysLang() { return (navigator.language || 'en').toLowerCase().startsWit
 function freshState() {
   return {
     cats: defaultCats(sysLang()), entries: [], notes: [], reminders: [],
-    settings: { lang: 'system', dateFmt: 'DD.MM.YYYY', timeFmt: '24', dayStart: 0, statEx: [] }
+    settings: { lang: 'system', dateFmt: 'DD.MM.YYYY', timeFmt: '24', dayStart: 0, statEx: [] },
+    screen: { ds: 0, days: {}, names: {}, hidden: [], lastFull: 0 }
   };
 }
 
@@ -106,6 +129,7 @@ function loadState() {
       const f = freshState();
       r.settings = Object.assign(f.settings, r.settings || {});
       r.entries = r.entries || []; r.notes = r.notes || []; r.reminders = r.reminders || [];
+      r.screen = Object.assign(f.screen, r.screen || {});
       return r;
     }
   } catch (e) { /* пусто */ }
@@ -134,6 +158,51 @@ const Native = {
     try { if (window.Android) window.Android.setReminders(JSON.stringify(list)); } catch (e) { /* ignore */ }
   }
 };
+
+/* Экранное время: читаем из Android, историю копим у себя */
+const Screen = {
+  has() { try { return window.Android ? !!window.Android.hasUsageAccess() : false; } catch (e) { return false; } },
+  open() { try { if (window.Android) window.Android.openUsageSettings(); } catch (e) { /* ignore */ } },
+  query(from, to) {
+    try { return window.Android ? JSON.parse(window.Android.getUsage(from, to)) : null; } catch (e) { return null; }
+  },
+  icons: (() => { try { return JSON.parse(localStorage.getItem('td_icons')) || {}; } catch (e) { return {}; } })(),
+  icon(pkg) {
+    if (this.icons[pkg] !== undefined) return this.icons[pkg];
+    let src = '';
+    try { if (window.Android) src = window.Android.getIcon(pkg) || ''; } catch (e) { /* ignore */ }
+    if (src) {
+      this.icons[pkg] = src;
+      try { localStorage.setItem('td_icons', JSON.stringify(this.icons)); } catch (e) { /* ignore */ }
+    }
+    return src;
+  }
+};
+
+/** Забирает данные за последние дни и сливает с сохранёнными (данные дня только растут). */
+function syncScreen(full) {
+  const sc = S.screen;
+  if (!Screen.has()) return false;
+  if (sc.ds !== S.settings.dayStart) { sc.days = {}; sc.ds = S.settings.dayStart; sc.lastFull = 0; }
+  const now = Date.now(), today = labelOf(now);
+  const doFull = full || now - (sc.lastFull || 0) > 5 * 60000;
+  const from = doFull ? addDays(today, -7) : today;
+  for (let k = from; k <= today; k = addDays(k, 1)) {
+    const [ws, we] = dayWindow(k);
+    if (ws > now) continue;
+    const res = Screen.query(ws, we);
+    if (!res) continue;
+    const cur = sc.days[k] || {};
+    res.forEach(r => {
+      sc.names[r.p] = r.n;
+      if (!(cur[r.p] >= r.ms)) cur[r.p] = r.ms;
+    });
+    if (Object.keys(cur).length) sc.days[k] = cur;
+  }
+  if (doFull) sc.lastFull = now;
+  save();
+  return true;
+}
 
 /* ---------- язык, форматы ---------- */
 function lang() { return S.settings.lang === 'system' ? sysLang() : S.settings.lang; }
@@ -210,6 +279,7 @@ const getCat = id => S.cats.find(c => c.id === id) || NOCAT();
 const U = {
   view: 'home', day: labelOf(Date.now()),
   range: '30', from: null, to: null, statView: 'circle', statMode: 'percent',
+  sper: '1', sday: labelOf(Date.now()), sall: false,
   noteTab: 'notes', calY: new Date().getFullYear(), calM: new Date().getMonth(), calSel: isoDate(Date.now())
 };
 let modals = [];
@@ -678,6 +748,80 @@ function legendRowsMode(map) {
   }).join('');
 }
 
+const APPCOL = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
+const OTHERCOL = '#94a3b8';
+
+function appIcon(pkg) {
+  const src = Screen.icon(pkg);
+  return src ? `<img class="appic" src="${src}" alt="">` : `<span class="appic ph">📱</span>`;
+}
+
+function screenView() {
+  const head = header(t('nav_screen'));
+  if (!window.Android || !Screen.has()) {
+    return `${head}<main class="noFab"><div class="card"><h2 style="margin:0 0 8px;font-size:18px">${t('scr_need_title')}</h2>
+      <p class="note" style="font-size:15px;color:var(--text)">${esc(t('scr_need_text'))}</p>
+      ${window.Android ? `<p class="note" style="font-size:14px">${esc(t('scr_steps')).replace(/\n/g, '<br>')}</p>
+      <div class="btns"><button class="btn primary" data-a="sgrant">${t('scr_grant')}</button></div>` : `<p class="note">${t('scr_browser')}</p>`}
+    </div></main>`;
+  }
+  const sc = S.screen, hid = new Set(sc.hidden), today = labelOf(Date.now());
+  let keys = [];
+  if (U.sper === '1') keys = [U.sday];
+  else { const n = +U.sper; for (let i = n - 1; i >= 0; i--) keys.push(addDays(today, -i)); }
+  const sum = {}, perDay = [];
+  keys.forEach(k => {
+    let tot = 0; const d = sc.days[k] || {};
+    Object.entries(d).forEach(([pkg, ms]) => { if (hid.has(pkg)) return; sum[pkg] = (sum[pkg] || 0) + ms; tot += ms; });
+    perDay.push({ k, tot });
+  });
+  const rows = Object.entries(sum).filter(([, ms]) => ms >= 30000).sort((a, b) => b[1] - a[1]);
+  const total = rows.reduce((a, [, ms]) => a + ms, 0);
+
+  // круг: топ-6 + остальные
+  const top = rows.slice(0, 6), rest = rows.slice(6).reduce((a, [, ms]) => a + ms, 0);
+  const items = top.map(([, ms], i) => ({ ms, color: APPCOL[i] }));
+  if (rest > 0) items.push({ ms: rest, color: OTHERCOL });
+  const colorOf = i => (i < 6 ? APPCOL[i] : OTHERCOL);
+
+  const shown = U.sall ? rows : rows.slice(0, 12);
+  const max = rows.length ? rows[0][1] : 1;
+  const list = shown.map(([pkg, ms]) => {
+    const i = rows.findIndex(r => r[0] === pkg);
+    return `<div class="approw">${appIcon(pkg)}<div class="am"><div class="top2"><span class="nm">${esc(sc.names[pkg] || pkg)}</span>
+      <b>${fmtDur(ms)}</b><span class="pc">${Math.round(ms / total * 100)}%</span></div>
+      <div class="track"><i style="width:${ms / max * 100}%;background:${colorOf(i)}"></i></div></div>
+      <button class="ib x" data-a="hideapp" data-id="${esc(pkg)}" aria-label="hide">✕</button></div>`;
+  }).join('');
+
+  let nav = '';
+  if (U.sper === '1') {
+    const wd = parseKey(U.sday).toLocaleDateString(lang(), { weekday: 'short' });
+    const label = U.sday === today ? t('today') : `${wd}, ${fmtDate(parseKey(U.sday).getTime())}`;
+    nav = `<div class="daynav"><button class="icon-btn" data-a="sprev">‹</button><label class="lbl">${esc(label)}<input type="date" value="${U.sday}" data-c="sday"></label>
+      <button class="icon-btn" data-a="snext" ${U.sday >= today ? 'disabled style="opacity:.3"' : ''}>›</button></div>`;
+  }
+  let bars = '';
+  if (U.sper !== '1') {
+    const mx = Math.max(1, ...perDay.map(d => d.tot));
+    bars = `<div class="card"><div class="sec" style="margin-top:0">${t('by_period')}</div>
+      <div class="bars">${perDay.map(d => `<div class="bar" data-a="sgoday" data-day="${d.k}"><div class="stack"><div style="height:${d.tot / mx * 130}px;background:var(--accent)"></div></div></div>`).join('')}</div>
+      <div class="barlabels">${perDay.map((d, i) => `<span>${(perDay.length <= 8 || i % 3 === 0) ? +d.k.slice(8) : ''}</span>`).join('')}</div></div>`;
+  }
+  const per = [['1', 'p1'], ['7', 'p7'], ['30', 'p30']];
+  return `${head}<main class="noFab">
+    <div class="seg-tabs">${per.map(([v, k]) => `<button class="${U.sper === v ? 'on' : ''}" data-a="sper" data-v="${v}">${t(k)}</button>`).join('')}</div>
+    ${nav}
+    <div class="card">${total > 0
+      ? `${donut(items, fmtDur(total), U.sper === '1' ? t('total') : keys.length + ' ' + t('scr_days'))}
+         <div class="sec">${t('scr_apps_hint')}</div><div class="apps">${list}</div>
+         ${rows.length > 12 ? `<div class="btns"><button class="btn" data-a="sall">${U.sall ? t('scr_less') : t('scr_show_all', rows.length)}</button></div>` : ''}`
+      : `<div class="empty">${t('scr_no_data')}</div>`}</div>
+    ${bars}
+    <div class="note" style="padding:0 4px">${t('scr_note')}</div>
+  </main>`;
+}
+
 function monthGrid() {
   const y = U.calY, mo = U.calM, first = new Date(y, mo, 1), lead = (first.getDay() + 6) % 7;
   const days = new Date(y, mo + 1, 0).getDate();
@@ -734,6 +878,9 @@ function settingsView() {
       ${S.cats.map(c => `<div class="crow"><span class="ci" style="background:${c.color}">${esc(c.icon)}</span><span class="nm">${esc(c.name)}</span>
         <button class="icon-btn" data-a="editcat" data-id="${c.id}">✏️</button></div>`).join('')}
       <div class="btns"><button class="btn primary" data-a="addcat">＋ ${t('add')}</button></div></div>
+    <div class="card"><div class="sec" style="margin-top:0">${t('scr_hidden')}</div>
+      ${S.screen.hidden.length ? S.screen.hidden.map(pkg => `<div class="crow">${appIcon(pkg)}<span class="nm">${esc(S.screen.names[pkg] || pkg)}</span>
+        <button class="btn" data-a="unhide" data-id="${esc(pkg)}">${t('scr_restore')}</button></div>`).join('') : `<div class="note">${t('scr_no_hidden')}</div>`}</div>
   </main>`;
 }
 
@@ -742,12 +889,14 @@ function render() {
   let body;
   if (U.view === 'stats') body = statsView();
   else if (U.view === 'notes') body = notesView();
+  else if (U.view === 'screen') body = screenView();
   else if (U.view === 'settings') body = settingsView();
   else body = homeView();
   const navOn = k => (U.view === k ? 'on' : '');
   $('#app').innerHTML = `${body}<nav>
     <button class="${navOn('stats')}" data-a="nav" data-v="stats"><span class="ni">📅</span>${t('nav_stats')}</button>
     <button class="${navOn('home')}" data-a="nav" data-v="home"><span class="ni">⏱️</span>${t('nav_home')}</button>
+    <button class="${navOn('screen')}" data-a="nav" data-v="screen"><span class="ni">📱</span>${t('nav_screen')}</button>
     <button class="${navOn('notes')}" data-a="nav" data-v="notes"><span class="ni">📝</span>${t('nav_notes')}</button></nav>`;
   document.documentElement.lang = lang();
   if ($('main')) $('main').scrollTop = keep;
@@ -830,7 +979,15 @@ document.addEventListener('click', e => {
   const a = e.target.closest('#app [data-a]'); if (!a) return;
   const act = a.dataset.a, id = a.dataset.id, v = a.dataset.v;
   switch (act) {
-    case 'nav': U.view = v; render(); break;
+    case 'nav': U.view = v; render(); if (v === 'screen') refreshScreen(true); break;
+    case 'sgrant': Screen.open(); break;
+    case 'sper': U.sper = v; U.sall = false; render(); break;
+    case 'sprev': U.sday = addDays(U.sday, -1); render(); break;
+    case 'snext': if (U.sday < labelOf(Date.now())) { U.sday = addDays(U.sday, 1); render(); } break;
+    case 'sall': U.sall = !U.sall; render(); break;
+    case 'sgoday': U.sper = '1'; U.sday = a.dataset.day; render(); break;
+    case 'hideapp': confirmBox(t('scr_hide'), () => { if (!S.screen.hidden.includes(id)) S.screen.hidden.push(id); save(); render(); }); break;
+    case 'unhide': S.screen.hidden = S.screen.hidden.filter(x => x !== id); save(); render(); break;
     case 'settings': U.view = 'settings'; render(); break;
     case 'back': U.view = 'home'; render(); break;
     case 'prev': U.day = addDays(U.day, -1); render(); break;
@@ -867,11 +1024,13 @@ document.addEventListener('change', e => {
   if (el) {
     const k = el.dataset.k;
     S.settings[k] = k === 'dayStart' ? +el.value : el.value;
+    if (k === 'dayStart') { S.screen.days = {}; S.screen.ds = S.settings.dayStart; S.screen.lastFull = 0; }
     save(); render(); return;
   }
   const dc = e.target.closest('#app [data-c]');
   if (!dc || !dc.value) return;
   if (dc.dataset.c === 'day') { U.day = dc.value; render(); }
+  if (dc.dataset.c === 'sday') { U.sday = dc.value > labelOf(Date.now()) ? labelOf(Date.now()) : dc.value; render(); }
   if (dc.dataset.c === 'from') { U.from = dc.value; U.range = 'custom'; if (!U.to) U.to = labelOf(Date.now()); render(); }
   if (dc.dataset.c === 'to') { U.to = dc.value; U.range = 'custom'; if (!U.from) U.from = addDays(dc.value, -6); render(); }
 });
@@ -882,7 +1041,11 @@ window.onBack = () => {
   if (U.view !== 'home') { U.view = 'home'; render(); return true; }
   return false;
 };
-window.onNativeResume = () => { render(); checkFinished(); };
+function refreshScreen(full) {
+  // показываем экран сразу, данные подтягиваем следом
+  setTimeout(() => { if (syncScreen(full) && U.view === 'screen') render(); }, 30);
+}
+window.onNativeResume = () => { render(); checkFinished(); if (U.view === 'screen') refreshScreen(false); };
 document.addEventListener('visibilitychange', () => { if (!document.hidden) window.onNativeResume(); });
 
 setInterval(() => {
@@ -891,6 +1054,8 @@ setInterval(() => {
   if (!st || st.finished) { render(); checkFinished(); return; }
   el.textContent = fmtClock(timerElapsed(st));
 }, 1000);
+
+setInterval(() => { if (U.view === 'screen' && !document.hidden && !modals.length) refreshScreen(false); }, 60000);
 
 render();
 checkFinished();

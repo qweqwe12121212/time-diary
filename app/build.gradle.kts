@@ -11,8 +11,8 @@ android {
         applicationId = "app.timediary"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     // Фиксированный ключ подписи: новые версии APK устанавливаются поверх старых,

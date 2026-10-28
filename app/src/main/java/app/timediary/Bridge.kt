@@ -29,4 +29,20 @@ class Bridge(private val ctx: Context) {
     fun setReminders(json: String) {
         Reminders.set(ctx, json)
     }
+
+    // ---- экранное время ----
+    @JavascriptInterface
+    fun hasUsageAccess(): Boolean = UsageReader.hasAccess(ctx)
+
+    @JavascriptInterface
+    fun openUsageSettings() {
+        UsageReader.openSettings(ctx)
+    }
+
+    @JavascriptInterface
+    fun getUsage(from: Double, to: Double): String =
+        try { UsageReader.query(ctx, from.toLong(), to.toLong()) } catch (e: Exception) { "[]" }
+
+    @JavascriptInterface
+    fun getIcon(pkg: String): String = UsageReader.icon(ctx, pkg)
 }

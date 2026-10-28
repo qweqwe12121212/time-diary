@@ -154,3 +154,17 @@ select.field{width:auto;min-width:150px}
 .crow .nm{flex:1}
 
 .toast{position:fixed;left:50%;bottom:130px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:12px;z-index:60;font-size:14px;max-width:86vw;text-align:center}
+
+/* экранное время */
+.appic{width:36px;height:36px;border-radius:9px;flex:none;object-fit:cover;background:var(--bg)}
+.appic.ph{display:grid;place-items:center;font-size:20px}
+.approw{display:flex;align-items:center;gap:10px;padding:7px 0}
+.approw .am{flex:1;min-width:0}
+.approw .top2{display:flex;align-items:center;gap:8px;font-size:15px}
+.approw .top2 .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.approw .pc{width:40px;text-align:right;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.approw .track{height:8px;border-radius:5px;background:var(--bg);margin-top:5px;overflow:hidden}
+.approw .track i{display:block;height:100%;border-radius:5px}
+.approw .ib.x{width:30px;height:30px;border-radius:50%;color:var(--muted);font-size:14px;flex:none}
+.approw .ib.x:active{background:var(--line)}
+nav button{min-width:0}
